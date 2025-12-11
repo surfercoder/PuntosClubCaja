@@ -1,7 +1,8 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView } from 'react-native';
 import { useAuth } from '../../contexts/AuthContext';
 import { router } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 
 export default function HomeScreen() {
   const { appUser, signOut } = useAuth();
@@ -66,15 +67,39 @@ export default function HomeScreen() {
         </View>
       </View>
 
+      {/* Main QR Scanner Button */}
+      <TouchableOpacity
+        style={styles.scannerCard}
+        onPress={() => router.push('/(app)/scanner')}
+        activeOpacity={0.8}
+      >
+        <View style={styles.scannerIconContainer}>
+          <Ionicons name="qr-code" size={48} color="#FFFFFF" />
+        </View>
+        <View style={styles.scannerTextContainer}>
+          <Text style={styles.scannerTitle}>Escanear Cliente</Text>
+          <Text style={styles.scannerSubtitle}>
+            Escanea el QR del cliente para registrar ventas o canjear puntos
+          </Text>
+        </View>
+        <Ionicons name="chevron-forward" size={24} color="#059669" />
+      </TouchableOpacity>
+
       <View style={styles.actionsCard}>
         <Text style={styles.actionsTitle}>Acciones rapidas</Text>
         <View style={styles.actionsGrid}>
-          <TouchableOpacity style={styles.actionButton}>
-            <Text style={styles.actionIcon}>+</Text>
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => router.push('/(app)/scanner')}
+          >
+            <Ionicons name="add-circle" size={28} color="#059669" />
             <Text style={styles.actionText}>Nueva Venta</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.actionButton}>
-            <Text style={styles.actionIcon}>*</Text>
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => router.push('/(app)/scanner')}
+          >
+            <Ionicons name="gift" size={28} color="#059669" />
             <Text style={styles.actionText}>Canjear Puntos</Text>
           </TouchableOpacity>
         </View>
@@ -178,6 +203,41 @@ const styles = StyleSheet.create({
   inactiveText: {
     color: '#DC2626',
   },
+  scannerCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+    borderWidth: 2,
+    borderColor: '#059669',
+  },
+  scannerIconContainer: {
+    backgroundColor: '#059669',
+    borderRadius: 12,
+    padding: 12,
+    marginRight: 16,
+  },
+  scannerTextContainer: {
+    flex: 1,
+  },
+  scannerTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#111827',
+    marginBottom: 4,
+  },
+  scannerSubtitle: {
+    fontSize: 13,
+    color: '#6B7280',
+    lineHeight: 18,
+  },
   actionsCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
@@ -206,15 +266,11 @@ const styles = StyleSheet.create({
     padding: 16,
     alignItems: 'center',
   },
-  actionIcon: {
-    fontSize: 24,
-    color: '#059669',
-    marginBottom: 8,
-  },
   actionText: {
     fontSize: 14,
     color: '#374151',
     fontWeight: '500',
+    marginTop: 8,
   },
   signOutButton: {
     backgroundColor: '#FEE2E2',

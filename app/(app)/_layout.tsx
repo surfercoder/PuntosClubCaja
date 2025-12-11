@@ -28,6 +28,23 @@ export default function AppLayout() {
           headerTitleStyle: { fontWeight: 'bold' },
         }}
       />
+      <Stack.Screen
+        name="scanner"
+        options={{
+          title: 'Escanear QR',
+          headerShown: false,
+          presentation: 'fullScreenModal',
+        }}
+      />
+      <Stack.Screen
+        name="new-sale"
+        options={{
+          title: 'Nueva Venta',
+          headerStyle: { backgroundColor: '#059669' },
+          headerTintColor: '#FFFFFF',
+          headerTitleStyle: { fontWeight: 'bold' },
+        }}
+      />
     </Stack>
   );
 }

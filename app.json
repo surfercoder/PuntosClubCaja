@@ -38,6 +38,12 @@
             "backgroundColor": "#000000"
           }
         }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Permitir a PuntosClub Caja acceder a tu camara para escanear codigos QR de clientes."
+        }
       ]
     ],
     "experiments": {
