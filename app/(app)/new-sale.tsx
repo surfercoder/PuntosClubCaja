@@ -171,12 +171,11 @@ export default function NewSaleScreen() {
   };
 
   const handleDone = () => {
-    router.back();
-    router.back(); // Go back twice (to home, past scanner)
+    router.replace('/(app)');
   };
 
   const handleScanAnother = () => {
-    router.back(); // Go back to scanner
+    router.replace('/(app)/scanner');
   };
 
   if (showSuccess) {

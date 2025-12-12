@@ -37,6 +37,15 @@ export default function AppLayout() {
         }}
       />
       <Stack.Screen
+        name="scanned-user"
+        options={{
+          title: 'Cliente Escaneado',
+          headerStyle: { backgroundColor: '#059669' },
+          headerTintColor: '#FFFFFF',
+          headerTitleStyle: { fontWeight: 'bold' },
+        }}
+      />
+      <Stack.Screen
         name="new-sale"
         options={{
           title: 'Nueva Venta',
