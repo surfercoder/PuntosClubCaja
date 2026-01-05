@@ -77,15 +77,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .single();
 
       if (error) {
-        console.error('Error fetching app_user:', error);
         // User is authenticated but not an app_user - sign them out
         await supabase.auth.signOut();
         setAppUser(null);
-      } else if (data) {
+      } else {
         // Verify user has cashier role
         const roleName = (data.user_role as any)?.name;
         if (roleName !== 'cashier') {
-          console.error('User is not a cashier');
           await supabase.auth.signOut();
           setAppUser(null);
         } else {
@@ -93,7 +91,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       }
     } catch (error) {
-      console.error('Error in fetchAppUser:', error);
+      // Silent error handling
     } finally {
       setLoading(false);
     }
@@ -185,23 +183,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return { error: new Error('La organizacion especificada no existe') };
       }
 
-      // Create the app_user record
-      const { error: appUserError } = await supabase
-        .from('app_user')
-        .insert({
-          email,
-          first_name: userData.first_name,
-          last_name: userData.last_name,
-          username: userData.username || null,
-          organization_id: userData.organization_id,
-          role_id: roleData.id,
-          auth_user_id: authData.user.id,
-          active: true,
-        });
+      // Create app_user and app_user_organization atomically using stored procedure
+      const { data: appUserData, error: appUserError } = await supabase.rpc('create_app_user_with_org', {
+        p_email: email,
+        p_first_name: userData.first_name,
+        p_last_name: userData.last_name,
+        p_username: userData.username || null,
+        p_organization_id: parseInt(userData.organization_id),
+        p_role_id: roleData.id,
+        p_auth_user_id: authData.user.id,
+        p_password: null,
+        p_active: true,
+      });
 
-      if (appUserError) {
+      if (appUserError || !appUserData || appUserData.length === 0) {
         await supabase.auth.signOut();
-        return { error: new Error('Error al crear el perfil de cajero: ' + appUserError.message) };
+        return { error: new Error('Error al crear el perfil de cajero: ' + appUserError?.message) };
       }
 
       return { error: null };

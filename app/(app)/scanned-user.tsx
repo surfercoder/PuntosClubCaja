@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -31,57 +31,66 @@ export default function ScannedUserScreen() {
   const isMember = params.isMember === 'true';
   const availablePoints = parseInt(params.availablePoints || '0', 10);
 
-  useEffect(() => {
-    if (isMember) {
-      checkPointsRules();
-    }
-  }, [isMember]);
-
-  const checkPointsRules = async () => {
+  const checkPointsRules = useCallback(async () => {
     if (!appUser?.organization_id) return;
 
     setCheckingRules(true);
     try {
-      // Use RPC function to properly check for rules that match the organization
-      // This includes global rules (organization_id IS NULL) and org-specific rules
-      const { data: rulesData, error: rulesError } = await supabase.rpc('get_active_offers', {
-        p_organization_id: parseInt(appUser.organization_id),
-        p_branch_id: null,
-        p_check_time: new Date().toISOString(),
-      });
+      const orgId = parseInt(appUser.organization_id);
+      
+      // Check for ANY active point rules (including default rules) for the organization
+      // This determines if purchases can be made, not just special offers
+      const { data: rulesData, error: rulesError } = await supabase
+        .from('points_rule')
+        .select('id')
+        .eq('is_active', true)
+        .eq('organization_id', orgId)
+        .limit(1);
 
       setHasPointsRules(!rulesError && rulesData && rulesData.length > 0);
-    } catch (error) {
-      console.error('Error checking points rules:', error);
+    } catch {
       setHasPointsRules(false);
     } finally {
       setCheckingRules(false);
     }
-  };
+  }, [appUser?.organization_id]);
+
+  useEffect(() => {
+    if (isMember) {
+      checkPointsRules();
+    }
+  }, [isMember, checkPointsRules]);
 
   const handleInviteUser = async () => {
-    if (!params.beneficiaryId || !appUser?.organization_id) return;
+    if (!params.beneficiaryId || !appUser?.organization_id) {
+      Alert.alert('Error', 'Datos incompletos para invitar al usuario');
+      return;
+    }
 
     setInviting(true);
     try {
       const { error } = await supabase
         .from('beneficiary_organization')
         .insert({
-          beneficiary_id: params.beneficiaryId,
-          organization_id: appUser.organization_id,
+          beneficiary_id: parseInt(params.beneficiaryId),
+          organization_id: parseInt(appUser.organization_id),
           available_points: 0,
           total_points_earned: 0,
           total_points_redeemed: 0,
           is_active: true,
-        });
+        })
+        .select()
+        .single();
 
       if (error) {
         if (error.code === '23505') {
           const { error: updateError } = await supabase
             .from('beneficiary_organization')
             .update({ is_active: true })
-            .eq('beneficiary_id', params.beneficiaryId)
-            .eq('organization_id', appUser.organization_id);
+            .eq('beneficiary_id', parseInt(params.beneficiaryId))
+            .eq('organization_id', parseInt(appUser.organization_id))
+            .select()
+            .single();
 
           if (updateError) {
             throw updateError;
@@ -97,8 +106,7 @@ export default function ScannedUserScreen() {
         [{ text: 'OK', onPress: () => router.back() }]
       );
     } catch (error) {
-      console.error('Error inviting user:', error);
-      Alert.alert('Error', 'No se pudo agregar al usuario');
+      Alert.alert('Error', `No se pudo agregar al usuario: ${error instanceof Error ? error.message : 'Error desconocido'}`);
     } finally {
       setInviting(false);
     }
@@ -117,11 +125,16 @@ export default function ScannedUserScreen() {
   };
 
   const handleRedeemPoints = () => {
-    Alert.alert(
-      'Proximamente',
-      'La funcionalidad de canje de puntos estara disponible pronto',
-      [{ text: 'OK' }]
-    );
+    router.push({
+      pathname: '/(app)/redeem-points',
+      params: {
+        beneficiaryId: params.beneficiaryId,
+        beneficiaryName: params.beneficiaryName || 'Cliente',
+        beneficiaryEmail: params.beneficiaryEmail || '',
+        availablePoints: params.availablePoints || '0',
+        membershipId: params.membershipId || '',
+      },
+    });
   };
 
   const handleScanAnother = () => {

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -42,25 +42,7 @@ export default function NewSaleScreen() {
   const [showSuccess, setShowSuccess] = useState(false);
   const [earnedPoints, setEarnedPoints] = useState(0);
 
-  // Fetch active offers for display
-  useEffect(() => {
-    fetchActiveOffers();
-  }, []);
-
-  // Calculate points whenever amount changes (debounced)
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (amount && parseFloat(amount) > 0) {
-        calculatePoints(parseFloat(amount));
-      } else {
-        setCalculatedPoints(null);
-      }
-    }, 300);
-
-    return () => clearTimeout(timer);
-  }, [amount]);
-
-  const fetchActiveOffers = async () => {
+  const fetchActiveOffers = useCallback(async () => {
     try {
       const { data, error } = await supabase.rpc('get_active_offers', {
         p_organization_id: appUser?.organization_id ? parseInt(appUser.organization_id) : null,
@@ -71,12 +53,12 @@ export default function NewSaleScreen() {
       if (!error && data) {
         setActiveOffers(data);
       }
-    } catch (error) {
-      console.error('Error fetching active offers:', error);
+    } catch {
+      // Silent error handling
     }
-  };
+  }, [appUser?.organization_id]);
 
-  const calculatePoints = async (purchaseAmount: number) => {
+  const calculatePoints = useCallback(async (purchaseAmount: number) => {
     setCalculating(true);
     try {
       const { data, error } = await supabase.rpc('calculate_points_for_amount', {
@@ -90,12 +72,28 @@ export default function NewSaleScreen() {
       if (!error) {
         setCalculatedPoints(data || 0);
       }
-    } catch (error) {
-      console.error('Error calculating points:', error);
+    } catch {
+      // Silent error handling
     } finally {
       setCalculating(false);
     }
-  };
+  }, [appUser?.organization_id]);
+
+  useEffect(() => {
+    fetchActiveOffers();
+  }, [fetchActiveOffers]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (amount && parseFloat(amount) > 0) {
+        calculatePoints(parseFloat(amount));
+      } else {
+        setCalculatedPoints(null);
+      }
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [amount, calculatePoints]);
 
   const handleSubmit = async () => {
     if (!amount || parseFloat(amount) <= 0) {
@@ -162,8 +160,7 @@ export default function NewSaleScreen() {
       setEarnedPoints(pointsEarned);
       setShowSuccess(true);
 
-    } catch (error) {
-      console.error('Error creating purchase:', error);
+    } catch {
       Alert.alert('Error', 'No se pudo registrar la venta. Intenta nuevamente.');
     } finally {
       setLoading(false);

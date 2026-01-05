@@ -29,10 +29,23 @@ export default function ScannerScreen() {
       const qrData = JSON.parse(result.data);
 
       if (qrData.type !== 'beneficiary' || !qrData.id) {
+        setLoading(false);
+        setScanned(false);
         Alert.alert('Error', 'Codigo QR no valido', [
           { text: 'OK', onPress: () => setScanned(false) }
         ]);
+        return;
+      }
+
+      // Parse beneficiary ID to integer (handle both string and number)
+      const beneficiaryIdInt = typeof qrData.id === 'number' ? qrData.id : parseInt(qrData.id, 10);
+
+      if (isNaN(beneficiaryIdInt)) {
         setLoading(false);
+        setScanned(false);
+        Alert.alert('Error', 'ID de usuario invalido', [
+          { text: 'OK', onPress: () => setScanned(false) }
+        ]);
         return;
       }
 
@@ -40,23 +53,28 @@ export default function ScannerScreen() {
       const { data: beneficiary, error: beneficiaryError } = await supabase
         .from('beneficiary')
         .select('id, email, first_name, last_name')
-        .eq('id', qrData.id)
+        .eq('id', beneficiaryIdInt)
         .single();
 
       if (beneficiaryError || !beneficiary) {
-        Alert.alert('Error', 'Usuario no encontrado', [
-          { text: 'OK', onPress: () => setScanned(false) }
-        ]);
         setLoading(false);
+        setScanned(false);
+        Alert.alert(
+          'Error', 
+          `Usuario no encontrado. ID: ${beneficiaryIdInt}`,
+          [{ text: 'OK', onPress: () => setScanned(false) }]
+        );
         return;
       }
 
       // Check if user is a member of the cashier's organization
+      const organizationIdInt = appUser?.organization_id ? parseInt(appUser.organization_id) : null;
+
       const { data: membership, error: membershipError } = await supabase
         .from('beneficiary_organization')
         .select('id, available_points, is_active')
-        .eq('beneficiary_id', qrData.id)
-        .eq('organization_id', appUser?.organization_id)
+        .eq('beneficiary_id', beneficiaryIdInt)
+        .eq('organization_id', organizationIdInt)
         .single();
 
       const isMember = !membershipError && membership && membership.is_active;
@@ -76,13 +94,13 @@ export default function ScannerScreen() {
         },
       });
     } catch (error) {
-      console.error('Error parsing QR:', error);
-      Alert.alert('Error', 'No se pudo leer el codigo QR', [
-        { text: 'OK', onPress: () => setScanned(false) }
-      ]);
-    } finally {
       setLoading(false);
       setScanned(false);
+      Alert.alert(
+        'Error', 
+        error instanceof Error ? error.message : 'No se pudo leer el codigo QR',
+        [{ text: 'OK', onPress: () => setScanned(false) }]
+      );
     }
   };
 
