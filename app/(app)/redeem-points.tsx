@@ -131,45 +131,101 @@ export default function RedeemPointsScreen() {
 
     setRedeeming(true);
     try {
-      // Create the redemption record
-      const { error: redemptionError } = await supabase
-        .from('redemption')
+      console.log('=== STARTING REDEMPTION ===');
+      console.log('Product:', product.name, 'Points:', product.required_points);
+      console.log('Beneficiary ID:', params.beneficiaryId);
+      console.log('Organization ID:', appUser.organization_id);
+
+      // Step 1: Create an order record first
+      console.log('Step 1: Creating order...');
+      const orderNumber = `ORD-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      const { data: orderData, error: orderError } = await supabase
+        .from('app_order')
         .insert({
-          beneficiary_id: parseInt(params.beneficiaryId),
-          product_id: product.id,
-          organization_id: parseInt(appUser.organization_id),
-          points_redeemed: product.required_points,
-          status: 'completed',
-          redeemed_by: parseInt(appUser.id),
+          order_number: orderNumber,
+          total_points: product.required_points,
+          observations: `Canje de producto: ${product.name}`,
         })
         .select()
         .single();
 
+      if (orderError) {
+        console.error('Order creation error:', JSON.stringify(orderError, null, 2));
+        throw new Error(`Error al crear orden: ${orderError.message || JSON.stringify(orderError)}`);
+      }
+      if (!orderData) {
+        console.error('No order data returned');
+        throw new Error('No se pudo crear la orden - sin datos');
+      }
+      console.log('Order created successfully:', orderData.id);
+
+      // Step 2: Create the redemption record with correct schema
+      console.log('Step 2: Creating redemption...');
+      const redemptionPayload = {
+        beneficiary_id: parseInt(params.beneficiaryId),
+        product_id: product.id,
+        order_id: orderData.id,
+        points_used: product.required_points,
+        quantity: 1,
+        redemption_date: new Date().toISOString(),
+      };
+      console.log('Redemption payload:', JSON.stringify(redemptionPayload, null, 2));
+
+      const { data: redemptionData, error: redemptionError } = await supabase
+        .from('redemption')
+        .insert(redemptionPayload)
+        .select()
+        .single();
+
       if (redemptionError) {
-        throw redemptionError;
+        console.error('Redemption creation error:', JSON.stringify(redemptionError, null, 2));
+        throw new Error(`Error al crear canje: ${redemptionError.message || JSON.stringify(redemptionError)}`);
+      }
+      console.log('Redemption created successfully:', redemptionData);
+
+      // Step 3: Get current points to calculate new total_points_redeemed
+      console.log('Step 3: Fetching current membership...');
+      const { data: currentMembership, error: membershipError } = await supabase
+        .from('beneficiary_organization')
+        .select('total_points_redeemed')
+        .eq('beneficiary_id', parseInt(params.beneficiaryId))
+        .eq('organization_id', parseInt(appUser.organization_id))
+        .single();
+
+      if (membershipError) {
+        console.error('Membership fetch error:', JSON.stringify(membershipError, null, 2));
+        throw new Error(`Error al obtener membresía: ${membershipError.message || JSON.stringify(membershipError)}`);
       }
 
-      // Update beneficiary_organization points
+      const currentRedeemed = currentMembership?.total_points_redeemed || 0;
+      console.log('Current redeemed points:', currentRedeemed);
+
+      // Step 4: Update beneficiary_organization points
+      console.log('Step 4: Updating beneficiary points...');
+      const updatePayload = {
+        available_points: availablePoints - product.required_points,
+        total_points_redeemed: currentRedeemed + product.required_points,
+      };
+      console.log('Update payload:', JSON.stringify(updatePayload, null, 2));
+
       const { error: updateError } = await supabase
         .from('beneficiary_organization')
-        .update({
-          available_points: availablePoints - product.required_points,
-          total_points_redeemed: supabase.rpc('increment_points', {
-            current_value: 0,
-            increment: product.required_points,
-          }),
-        })
+        .update(updatePayload)
         .eq('beneficiary_id', parseInt(params.beneficiaryId))
         .eq('organization_id', parseInt(appUser.organization_id));
 
       if (updateError) {
-        throw updateError;
+        console.error('Points update error:', JSON.stringify(updateError, null, 2));
+        throw new Error(`Error al actualizar puntos: ${updateError.message || JSON.stringify(updateError)}`);
       }
+      console.log('Points updated successfully');
 
-      // Update stock (decrease by 1)
+      // Step 5: Update stock (decrease by 1)
+      console.log('Step 5: Updating stock...');
       if (product.stock && product.stock.length > 0) {
         const stockItem = product.stock.find(s => s.quantity > 0);
         if (stockItem) {
+          console.log('Updating stock item:', stockItem.id, 'from', stockItem.quantity, 'to', stockItem.quantity - 1);
           const { error: stockError } = await supabase
             .from('stock')
             .update({
@@ -178,17 +234,27 @@ export default function RedeemPointsScreen() {
             .eq('id', stockItem.id);
 
           if (stockError) {
-            console.error('Error updating stock:', stockError);
+            console.error('Stock update error:', JSON.stringify(stockError, null, 2));
+          } else {
+            console.log('Stock updated successfully');
           }
         }
       }
 
+      console.log('=== REDEMPTION COMPLETED SUCCESSFULLY ===');
       setRedeemedProduct(product);
       setShowSuccess(true);
     } catch (error) {
+      console.error('=== REDEMPTION FAILED ===');
+      console.error('Error type:', typeof error);
+      console.error('Error:', error);
+      if (error instanceof Error) {
+        console.error('Error message:', error.message);
+        console.error('Error stack:', error.stack);
+      }
       Alert.alert(
         'Error',
-        `No se pudo completar el canje: ${error instanceof Error ? error.message : 'Error desconocido'}`
+        `No se pudo completar el canje: ${error instanceof Error ? error.message : JSON.stringify(error)}`
       );
     } finally {
       setRedeeming(false);
