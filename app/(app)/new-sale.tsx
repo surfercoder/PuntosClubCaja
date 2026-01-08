@@ -44,9 +44,17 @@ export default function NewSaleScreen() {
 
   const fetchActiveOffers = useCallback(async () => {
     try {
+      // Get the cashier's branch
+      const { data: branchData } = await supabase
+        .from('branch')
+        .select('id')
+        .eq('organization_id', appUser?.organization_id || 0)
+        .limit(1)
+        .single();
+
       const { data, error } = await supabase.rpc('get_active_offers', {
         p_organization_id: appUser?.organization_id ? parseInt(appUser.organization_id) : null,
-        p_branch_id: null,
+        p_branch_id: branchData?.id || null,
         p_check_time: new Date().toISOString(),
       });
 
@@ -61,10 +69,18 @@ export default function NewSaleScreen() {
   const calculatePoints = useCallback(async (purchaseAmount: number) => {
     setCalculating(true);
     try {
+      // Get the cashier's branch
+      const { data: branchData } = await supabase
+        .from('branch')
+        .select('id')
+        .eq('organization_id', appUser?.organization_id || 0)
+        .limit(1)
+        .single();
+
       const { data, error } = await supabase.rpc('calculate_points_for_amount', {
         p_amount: purchaseAmount,
         p_organization_id: appUser?.organization_id ? parseInt(appUser.organization_id) : null,
-        p_branch_id: null,
+        p_branch_id: branchData?.id || null,
         p_category_id: null,
         p_purchase_time: new Date().toISOString(),
       });
@@ -110,23 +126,7 @@ export default function NewSaleScreen() {
     try {
       const purchaseAmount = parseFloat(amount);
 
-      // Get the calculated points
-      const { data: pointsData, error: pointsError } = await supabase.rpc('calculate_points_for_amount', {
-        p_amount: purchaseAmount,
-        p_organization_id: parseInt(appUser.organization_id),
-        p_branch_id: null,
-        p_category_id: null,
-        p_purchase_time: new Date().toISOString(),
-      });
-
-      if (pointsError) {
-        throw pointsError;
-      }
-
-      const pointsEarned = pointsData || 0;
-
-      // Create the purchase record
-      // First, we need to get a branch_id (use the first branch of the org for now)
+      // First, get the cashier's branch (use the first branch of the org)
       const { data: branchData, error: branchError } = await supabase
         .from('branch')
         .select('id')
@@ -138,6 +138,21 @@ export default function NewSaleScreen() {
         // PGRST116 is "no rows returned", which we'll handle
         throw branchError;
       }
+
+      // Get the calculated points using the branch_id
+      const { data: pointsData, error: pointsError } = await supabase.rpc('calculate_points_for_amount', {
+        p_amount: purchaseAmount,
+        p_organization_id: parseInt(appUser.organization_id),
+        p_branch_id: branchData?.id || null,
+        p_category_id: null,
+        p_purchase_time: new Date().toISOString(),
+      });
+
+      if (pointsError) {
+        throw pointsError;
+      }
+
+      const pointsEarned = pointsData || 0;
 
       // Create the purchase - the trigger will update beneficiary_organization points
       const { error: purchaseError } = await supabase
