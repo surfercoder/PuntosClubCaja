@@ -7,6 +7,7 @@ import {
   Alert,
   ActivityIndicator,
   FlatList,
+  Image,
 } from 'react-native';
 import { router, useLocalSearchParams, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -19,6 +20,7 @@ type Product = {
   description: string | null;
   required_points: number;
   active: boolean;
+  image_urls?: string[] | null;
   category: {
     id: number;
     name: string;
@@ -363,6 +365,13 @@ export default function RedeemPointsScreen() {
                   onPress={() => handleProductSelect(item)}
                   disabled={!isAvailable || redeeming}
                 >
+                  {item.image_urls && item.image_urls.length > 0 && (
+                    <Image
+                      source={{ uri: item.image_urls[0] }}
+                      style={styles.productImage}
+                      resizeMode="cover"
+                    />
+                  )}
                   <View style={styles.productHeader}>
                     <View style={styles.productInfo}>
                       <Text style={[
@@ -536,6 +545,13 @@ const styles = StyleSheet.create({
   productItemDisabled: {
     opacity: 0.5,
     backgroundColor: '#F9FAFB',
+  },
+  productImage: {
+    width: '100%',
+    height: 180,
+    borderRadius: 8,
+    marginBottom: 12,
+    backgroundColor: '#E5E7EB',
   },
   productHeader: {
     flexDirection: 'row',

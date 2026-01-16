@@ -54,6 +54,15 @@ export default function AppLayout() {
           headerTitleStyle: { fontWeight: 'bold' },
         }}
       />
+      <Stack.Screen
+        name="profile"
+        options={{
+          title: 'Mi Perfil',
+          headerStyle: { backgroundColor: '#059669' },
+          headerTintColor: '#FFFFFF',
+          headerTitleStyle: { fontWeight: 'bold' },
+        }}
+      />
     </Stack>
   );
 }

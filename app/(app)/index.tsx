@@ -1,11 +1,20 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, Modal } from 'react-native';
 import { useAuth } from '../../contexts/AuthContext';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import QRCode from 'react-native-qrcode-svg';
 
 export default function HomeScreen() {
   const { appUser, signOut } = useAuth();
+  const [qrModalVisible, setQrModalVisible] = useState(false);
+
+  const organizationName = (appUser?.organization as any)?.name || 'Sin organizacion';
+  const qrData = JSON.stringify({
+    type: 'organization',
+    id: appUser?.organization_id,
+    name: organizationName,
+  });
 
   const handleSignOut = async () => {
     Alert.alert(
@@ -33,14 +42,31 @@ export default function HomeScreen() {
         </Text>
         <View style={styles.orgContainer}>
           <Text style={styles.orgLabel}>Organizacion</Text>
-          <Text style={styles.orgName}>
-            {(appUser?.organization as any)?.name || 'Sin organizacion'}
-          </Text>
+          <View style={styles.orgNameRow}>
+            <Text style={styles.orgName}>
+              {organizationName}
+            </Text>
+            {appUser?.organization_id && (
+              <TouchableOpacity
+                onPress={() => setQrModalVisible(true)}
+                style={styles.qrIconButton}
+              >
+                <Ionicons name="qr-code" size={28} color="#FFFFFF" />
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
       </View>
 
-      <View style={styles.infoCard}>
-        <Text style={styles.infoTitle}>Informacion de tu cuenta</Text>
+      <TouchableOpacity 
+        style={styles.infoCard}
+        onPress={() => router.push('/(app)/profile')}
+        activeOpacity={0.7}
+      >
+        <View style={styles.infoHeader}>
+          <Text style={styles.infoTitle}>Informacion de tu cuenta</Text>
+          <Text style={styles.editLink}>Editar →</Text>
+        </View>
         <View style={styles.infoRow}>
           <Text style={styles.infoLabel}>Nombre:</Text>
           <Text style={styles.infoValue}>
@@ -65,7 +91,7 @@ export default function HomeScreen() {
             </Text>
           </View>
         </View>
-      </View>
+      </TouchableOpacity>
 
       {/* Main QR Scanner Button */}
       <TouchableOpacity
@@ -108,6 +134,46 @@ export default function HomeScreen() {
       <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut}>
         <Text style={styles.signOutText}>Cerrar Sesion</Text>
       </TouchableOpacity>
+
+      <Modal
+        visible={qrModalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setQrModalVisible(false)}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setQrModalVisible(false)}
+        >
+          <View style={styles.modalContent}>
+            <TouchableOpacity
+              style={styles.modalCloseButton}
+              onPress={() => setQrModalVisible(false)}
+            >
+              <Ionicons name="close-circle" size={32} color="#6B7280" />
+            </TouchableOpacity>
+            
+            <Text style={styles.modalTitle}>QR de {organizationName}</Text>
+            <Text style={styles.modalSubtitle}>
+              Los clientes pueden escanear este codigo para unirse
+            </Text>
+            
+            <View style={styles.qrContainer}>
+              <QRCode
+                value={qrData}
+                size={280}
+                backgroundColor="white"
+                color="#059669"
+              />
+            </View>
+            
+            <Text style={styles.modalHint}>
+              Toca fuera del cuadro para cerrar
+            </Text>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 }
@@ -143,10 +209,20 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 1,
   },
+  orgNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
   orgName: {
     fontSize: 20,
     fontWeight: 'bold',
     color: '#FFFFFF',
+  },
+  qrIconButton: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderRadius: 8,
+    padding: 6,
   },
   infoCard: {
     backgroundColor: '#FFFFFF',
@@ -159,11 +235,21 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
+  infoHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
   infoTitle: {
     fontSize: 18,
     fontWeight: '600',
     color: '#374151',
-    marginBottom: 16,
+  },
+  editLink: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#059669',
   },
   infoRow: {
     flexDirection: 'row',
@@ -271,6 +357,58 @@ const styles = StyleSheet.create({
     color: '#374151',
     fontWeight: '500',
     marginTop: 8,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 24,
+    alignItems: 'center',
+    maxWidth: 400,
+    width: '100%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  modalCloseButton: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    zIndex: 1,
+  },
+  modalTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#059669',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  modalSubtitle: {
+    fontSize: 14,
+    color: '#6B7280',
+    marginBottom: 24,
+    textAlign: 'center',
+  },
+  qrContainer: {
+    padding: 20,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    borderWidth: 3,
+    borderColor: '#059669',
+    marginBottom: 16,
+  },
+  modalHint: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    fontStyle: 'italic',
   },
   signOutButton: {
     backgroundColor: '#FEE2E2',
